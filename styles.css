@@ -411,3 +411,23 @@ nav.site.scrolled .wrap{height:58px;}
 /* ---- richer scroll-reveal: slight scale + blur clearing ---- */
 .reveal{transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease);}
 @media(prefers-reduced-motion:reduce){.reveal{filter:none;}}
+
+/* ============================================================
+   HERO CRASHING-WHITEWATER ANIMATION  (procedural canvas)
+   Palette-matched swells + foam/spray, faded low and scrimmed.
+   Sits at z-index 0, beneath the SVG waves, vignette & copy.
+   Rendered by site.js; degrades to the gradient hero if canvas
+   is unavailable or the viewer prefers reduced motion.
+   ============================================================ */
+.hero.has-waves{background:
+  radial-gradient(1200px 520px at 72% -12%, rgba(121,176,168,0.12), transparent 62%),
+  linear-gradient(180deg,var(--navy-950),var(--navy-800));}
+.herowaves{position:absolute;inset:0;z-index:0;overflow:hidden;}
+.herowaves-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
+  opacity:0;transition:opacity 1.4s var(--ease);}
+.herowaves.on .herowaves-canvas{opacity:1;}
+.herowaves-scrim{position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(1100px 480px at 72% -14%, rgba(121,176,168,0.10), transparent 60%),
+    linear-gradient(180deg, rgba(5,15,26,.55) 0%, rgba(8,20,34,.30) 46%, rgba(11,27,43,.80) 100%);}
+@media (prefers-reduced-motion: reduce){ .herowaves-canvas{opacity:.5;} }
