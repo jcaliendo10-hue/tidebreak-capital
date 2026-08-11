@@ -177,83 +177,126 @@
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     }
 
-    // Layered swells, back (deep/faint) to front (the breaker)
-    var LAYERS = [
-      { base: 0.62, amp: 18, len: 0.0016, spd: 0.006, col: TEAL_DIM,    a: 0.10, k2: 0.0037, s2: 0.011 },
-      { base: 0.70, amp: 24, len: 0.0012, spd: 0.010, col: TEAL,        a: 0.12, k2: 0.0029, s2: 0.015 },
-      { base: 0.80, amp: 30, len: 0.0009, spd: 0.016, col: TEAL,        a: 0.16, k2: 0.0022, s2: 0.020 },
-      { base: 0.90, amp: 34, len: 0.0007, spd: 0.024, col: TEAL_BRIGHT, a: 0.20, k2: 0.0018, s2: 0.026, breaker: true }
+    // Ambient swells (slow, calm) sit behind one breaker that
+    // builds up, crashes, throws a splash, then settles — on a cycle.
+    var SWELLS = [
+      { base: 0.66, amp: 12, len: 0.0015, spd: 0.0040, col: TEAL_DIM, a: 0.09, k2: 0.0031, s2: 0.0070 },
+      { base: 0.76, amp: 16, len: 0.0011, spd: 0.0060, col: TEAL,     a: 0.12, k2: 0.0024, s2: 0.0100 }
     ];
+    var BR = { base: 0.86, len: 0.0009, spd: 0.010, col: TEAL_BRIGHT, k2: 0.0016, s2: 0.014 };
 
-    function crest(layer, x, t) {
-      return H * layer.base
-        - Math.sin(x * layer.len + t * layer.spd) * layer.amp
-        - Math.sin(x * layer.k2 + t * layer.s2) * layer.amp * 0.4;
+    var ripples = [];
+    var MAXP = 320;
+    var CYCLE = 7000;                 // ms per wave — slow
+    var lastCycle = -1, crashed = false, breakX = 0.6;
+
+    function easeInOut(p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
+    function pick(seed) { var x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); }
+
+    // Energy curve across a cycle: slow build to a peak, sharp crash, calm.
+    function energy(ph) {
+      if (ph < 0.72) return easeInOut(ph / 0.72);   // build
+      if (ph < 0.82) return 1 - (ph - 0.72) / 0.10; // crash (drop to 0)
+      return 0;                                      // calm
     }
 
-    function spawnFoam(x, y, t) {
-      var speed = 0.6 + Math.random() * 1.6;
-      var ang = -Math.PI / 2 + (Math.random() - 0.5) * 1.1;
-      particles.push({
-        x: x, y: y,
-        vx: Math.cos(ang) * speed + (Math.random() - 0.5) * 0.6,
-        vy: Math.sin(ang) * speed - (0.4 + Math.random() * 0.9),
-        life: 1, decay: 0.008 + Math.random() * 0.012,
-        r: 0.7 + Math.random() * 2.1
-      });
+    function crestOf(base, amp, len, spd, k2, s2, x, t) {
+      return H * base - Math.sin(x * len + t * spd) * amp - Math.sin(x * k2 + t * s2) * amp * 0.4;
     }
 
-    var MAXP = 220;
+    // Burst of foam thrown up when the wave breaks — arcs up ~150px then falls.
+    function splash(x, y) {
+      var n = 80 + Math.floor(Math.random() * 45);
+      for (var i = 0; i < n && particles.length < MAXP; i++) {
+        var ang = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI * 0.7);
+        var sp = 1.2 + Math.random() * 3.2;
+        particles.push({
+          x: x + (Math.random() - 0.5) * 30, y: y,
+          vx: Math.cos(ang) * sp,
+          vy: Math.sin(ang) * sp * 0.9 - (0.8 + Math.random() * 1.9),
+          life: 1, decay: 0.010 + Math.random() * 0.012,
+          r: 0.8 + Math.random() * 2.5, grav: 0.15 + Math.random() * 0.06
+        });
+      }
+      ripples.push({ x: x, y: y, r: 6, life: 1 });
+    }
+
     function frame(t) {
       if (!running) return;
       ctx.clearRect(0, 0, W, H);
 
-      for (var i = 0; i < LAYERS.length; i++) {
-        var L = LAYERS[i];
-        ctx.beginPath();
-        ctx.moveTo(0, H);
-        var step = Math.max(6, W / 220), prevY = 0;
-        for (var x = 0; x <= W + step; x += step) {
-          var y = crest(L, x, t);
-          if (x === 0) ctx.lineTo(0, y);
-          else ctx.lineTo(x, y);
-          prevY = y;
-          // Breaking crest sheds foam where the swell steepens
-          if (L.breaker && Math.random() < 0.06 && particles.length < MAXP) {
-            spawnFoam(x, y, t);
-          }
-        }
-        ctx.lineTo(W, H);
-        ctx.closePath();
-        var g = ctx.createLinearGradient(0, H * L.base - L.amp, 0, H);
-        g.addColorStop(0, rgba(L.col, L.a));
-        g.addColorStop(1, rgba(L.col, L.a * 0.15));
-        ctx.fillStyle = g;
-        ctx.fill();
+      var cyc = Math.floor(t / CYCLE);
+      var ph = (t % CYCLE) / CYCLE;
+      if (cyc !== lastCycle) { lastCycle = cyc; crashed = false; breakX = 0.42 + pick(cyc + 1) * 0.36; }
+      var e = energy(ph);
+      var step = Math.max(6, W / 240);
 
-        // Foam highlight line along the breaking crest
-        if (L.breaker) {
-          ctx.beginPath();
-          for (var x2 = 0; x2 <= W; x2 += step) {
-            var yc = crest(L, x2, t) + (Math.random() - 0.5) * 1.4;
-            if (x2 === 0) ctx.moveTo(0, yc); else ctx.lineTo(x2, yc);
-          }
-          ctx.strokeStyle = rgba(FOAM, 0.14);
-          ctx.lineWidth = 1.4;
-          ctx.stroke();
+      // --- ambient swells ---
+      for (var i = 0; i < SWELLS.length; i++) {
+        var L = SWELLS[i];
+        ctx.beginPath(); ctx.moveTo(0, H);
+        for (var x = 0; x <= W + step; x += step) {
+          var y = crestOf(L.base, L.amp, L.len, L.spd, L.k2, L.s2, x, t);
+          x === 0 ? ctx.lineTo(0, y) : ctx.lineTo(x, y);
         }
+        ctx.lineTo(W, H); ctx.closePath();
+        var g = ctx.createLinearGradient(0, H * L.base - L.amp, 0, H);
+        g.addColorStop(0, rgba(L.col, L.a)); g.addColorStop(1, rgba(L.col, L.a * 0.15));
+        ctx.fillStyle = g; ctx.fill();
       }
 
-      // Spray particles
+      // --- breaker: rises with energy, crashes at the peak ---
+      var brAmp = 14 + e * 34;
+      ctx.beginPath(); ctx.moveTo(0, H);
+      for (var xb = 0; xb <= W + step; xb += step) {
+        var yb = crestOf(BR.base, brAmp, BR.len, BR.spd, BR.k2, BR.s2, xb, t);
+        xb === 0 ? ctx.lineTo(0, yb) : ctx.lineTo(xb, yb);
+      }
+      ctx.lineTo(W, H); ctx.closePath();
+      var gb = ctx.createLinearGradient(0, H * BR.base - brAmp, 0, H);
+      gb.addColorStop(0, rgba(BR.col, 0.14 + e * 0.12));
+      gb.addColorStop(1, rgba(BR.col, 0.03));
+      ctx.fillStyle = gb; ctx.fill();
+
+      // foam line on the crest, brightening as it peaks
+      ctx.beginPath();
+      for (var xf = 0; xf <= W; xf += step) {
+        var yf = crestOf(BR.base, brAmp, BR.len, BR.spd, BR.k2, BR.s2, xf, t) + (Math.random() - 0.5) * 1.6;
+        xf === 0 ? ctx.moveTo(0, yf) : ctx.lineTo(xf, yf);
+      }
+      ctx.strokeStyle = rgba(FOAM, 0.06 + e * 0.16);
+      ctx.lineWidth = 1.3; ctx.stroke();
+
+      // pre-crash droplets near the swelling crest, then the crash splash
+      var bx = breakX * W;
+      var by = crestOf(BR.base, brAmp, BR.len, BR.spd, BR.k2, BR.s2, bx, t);
+      if (e > 0.5 && Math.random() < (e - 0.5) * 0.5 && particles.length < MAXP) {
+        particles.push({ x: bx + (Math.random() - 0.5) * 60, y: by,
+          vx: (Math.random() - 0.5) * 1.2, vy: -(0.6 + Math.random() * 1.2),
+          life: 1, decay: 0.02 + Math.random() * 0.02, r: 0.6 + Math.random() * 1.4, grav: 0.15 });
+      }
+      if (!crashed && ph >= 0.72) { crashed = true; splash(bx, by); }
+
+      // --- spray particles ---
       for (var p = particles.length - 1; p >= 0; p--) {
         var P = particles[p];
-        P.x += P.vx; P.y += P.vy; P.vy += 0.045; // gravity
+        P.x += P.vx; P.y += P.vy; P.vy += (P.grav || 0.05);
         P.life -= P.decay;
         if (P.life <= 0 || P.y > H) { particles.splice(p, 1); continue; }
-        ctx.beginPath();
-        ctx.arc(P.x, P.y, P.r, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(FOAM, Math.max(0, P.life) * 0.5);
+        ctx.beginPath(); ctx.arc(P.x, P.y, P.r, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(FOAM, Math.max(0, P.life) * 0.55);
         ctx.fill();
+      }
+
+      // --- expanding foam ring where it broke ---
+      for (var r0 = ripples.length - 1; r0 >= 0; r0--) {
+        var R = ripples[r0];
+        R.r += 1.4; R.life -= 0.02;
+        if (R.life <= 0) { ripples.splice(r0, 1); continue; }
+        ctx.beginPath();
+        ctx.ellipse(R.x, R.y, R.r, R.r * 0.32, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba(FOAM, Math.max(0, R.life) * 0.14);
+        ctx.lineWidth = 1.1; ctx.stroke();
       }
 
       if (!booted && wavesWrap) { wavesWrap.classList.add("on"); booted = true; }
