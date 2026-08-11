@@ -183,7 +183,7 @@
     var MAXH  = 0.58;     // peak wave height (fraction of hero height)
     var ripples = [];
     var MAXP = 460;
-    var CYCLE = 9000;     // ms — slow and grand
+    var CYCLE = 6000;     // ms per crash — alternates sides, so a full slosh is ~12s
     var lastCycle = -1, crashed = false, dir = 1;
 
     // gentle base chop behind the big wave
@@ -196,18 +196,19 @@
     function easeOut(p) { return 1 - Math.pow(1 - p, 3); }
     function pick(seed) { var x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); }
 
-    // Wave height across the cycle: slow tower rise, hang, slow crash, calm.
+    // Wave height across the cycle: pops up fast, grows as it rolls
+    // across, towers and crashes at the far side, then hands off.
     function heightF(ph) {
-      if (ph < 0.56) return easeOut(ph / 0.56);            // slow rise to full height
-      if (ph < 0.64) return 1;                             // hang at the top (curl)
-      if (ph < 0.86) return 1 - easeInOut((ph - 0.64) / 0.22); // crash down
-      return 0;                                            // calm
+      if (ph < 0.14) return easeOut(ph / 0.14) * 0.78;              // pop up quickly
+      if (ph < 0.80) return 0.78 + easeInOut((ph - 0.14) / 0.66) * 0.22; // grow while travelling
+      if (ph < 0.94) return 1 - easeInOut((ph - 0.80) / 0.14);      // crash down
+      return 0;
     }
-    // Curl intensity peaks just before/into the crash.
+    // Curl intensity peaks into the crash at the far side.
     function curlF(ph) {
-      if (ph < 0.48) return 0;
-      if (ph < 0.64) return (ph - 0.48) / 0.16;
-      if (ph < 0.80) return 1 - (ph - 0.64) / 0.16;
+      if (ph < 0.55) return 0;
+      if (ph < 0.80) return (ph - 0.55) / 0.25;
+      if (ph < 0.92) return 1 - (ph - 0.80) / 0.12;
       return 0;
     }
 
@@ -245,7 +246,7 @@
 
       var cyc = Math.floor(t / CYCLE);
       var ph = (t % CYCLE) / CYCLE;
-      if (cyc !== lastCycle) { lastCycle = cyc; crashed = false; dir = pick(cyc + 1) > 0.5 ? 1 : -1; }
+      if (cyc !== lastCycle) { lastCycle = cyc; crashed = false; }
       var hf = heightF(ph), cf = curlF(ph);
       var step = Math.max(6, W / 260);
 
@@ -263,11 +264,15 @@
         ctx.fillStyle = g; ctx.fill();
       }
 
-      // --- the towering wave ---
+      // --- the towering wave: sloshes side to side. It pops up where the
+      //     previous wave crashed, rolls across, and crashes on the far side ---
       var h = hf * MAXH * H;
-      var startX = dir > 0 ? 0.12 : 0.88, endX = dir > 0 ? 0.68 : 0.32;
-      var travel = Math.min(ph / 0.64, 1);
-      var cx = (startX + (endX - startX) * easeOut(travel)) * W;
+      var even = (cyc % 2 === 0);
+      var riseX = even ? 0.20 : 0.80;   // pops up here (last crash point)
+      var crashX = even ? 0.80 : 0.20;  // crashes here (opposite side)
+      dir = crashX > riseX ? 1 : -1;
+      var travel = easeInOut(Math.min(ph / 0.80, 1));
+      var cx = (riseX + (crashX - riseX) * travel) * W;
       var wBack = 0.34 * W, wFront = (0.15 - cf * 0.06) * W; // front steepens as it curls
 
       if (h > 2) {
@@ -301,7 +306,7 @@
           ctx.ellipse(lipX, apexY + 6, 10 + cf * 20, 6 + cf * 12, 0, 0, Math.PI * 2);
           ctx.fillStyle = rgba(FOAM, 0.10 + cf * 0.28);
           ctx.fill();
-          if (ph > 0.60 && particles.length < MAXP && Math.random() < 0.55) {
+          if (ph > 0.72 && particles.length < MAXP && Math.random() < 0.55) {
             particles.push({ x: lipX + (Math.random() - 0.5) * 34, y: apexY,
               vx: dir * (0.6 + Math.random() * 1.8) + (Math.random() - 0.5),
               vy: -(0.4 + Math.random() * 1.4),
@@ -310,9 +315,8 @@
         }
       }
 
-      // the crash: one broad splash at the impact line
-      var impactX = (dir > 0 ? 0.68 : 0.32) * W;
-      if (!crashed && ph >= 0.64) { crashed = true; bigSplash(impactX, H * WATER - 2, 0.5 * W); }
+      // the crash: one broad splash where the wave meets the far side
+      if (!crashed && ph >= 0.80) { crashed = true; bigSplash(crashX * W, H * WATER - 2, 0.5 * W); }
 
       // --- spray particles ---
       for (var p = particles.length - 1; p >= 0; p--) {
