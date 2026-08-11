@@ -214,11 +214,15 @@
 
     function chopY(L, x, t) { return H * L.base - Math.sin(x * L.len + t * L.spd) * L.amp - Math.sin(x * L.k2 + t * L.s2) * L.amp * 0.4; }
 
-    // Front profile of the big wave: skewed bell, steep on the leading side.
-    function waveY(x, cx, wBack, wFront, h) {
+    // Gentle continuous sea surface, so the wave reads as water not a blob.
+    function seaBase(x, t) { return Math.sin(x * 0.006 + t * 0.0016) * 7 + Math.sin(x * 0.011 - t * 0.0022) * 4; }
+    // Wave crest profile: asymmetric and sharpened to a peak — gentle back,
+    // steep leading face — so it looks like a wave, not a round bell.
+    function waveY(x, cx, wBack, wFront, h, t) {
       var w = ((x < cx) === (dir > 0)) ? wBack : wFront;
       var dx = (x - cx) / w;
-      return H * WATER - h * Math.exp(-dx * dx * 2.0);
+      var bump = Math.pow(Math.exp(-dx * dx * 2.0), 0.7); // pointier than a gaussian
+      return H * WATER - seaBase(x, t) - h * bump;
     }
 
     // Broad splash when the wave crashes down — tallest in the middle.
@@ -273,18 +277,18 @@
       dir = crashX > riseX ? 1 : -1;
       var travel = easeInOut(Math.min(ph / 0.80, 1));
       var cx = (riseX + (crashX - riseX) * travel) * W;
-      var wBack = 0.34 * W, wFront = (0.15 - cf * 0.06) * W; // front steepens as it curls
+      var wBack = 0.28 * W, wFront = (0.12 - cf * 0.05) * W; // gentle back, steep front
 
       if (h > 2) {
         ctx.beginPath(); ctx.moveTo(0, H);
         for (var xw = 0; xw <= W + step; xw += step) {
-          var yw = waveY(xw, cx, wBack, wFront, h);
+          var yw = waveY(xw, cx, wBack, wFront, h, t);
           xw === 0 ? ctx.lineTo(0, yw) : ctx.lineTo(xw, yw);
         }
         ctx.lineTo(W, H); ctx.closePath();
-        var top = H * WATER - h;
-        var gw = ctx.createLinearGradient(0, top, 0, H * WATER);
-        gw.addColorStop(0, rgba(TEAL_BRIGHT, 0.30));
+        var apexY = waveY(cx, cx, wBack, wFront, h, t);
+        var gw = ctx.createLinearGradient(0, apexY, 0, H * WATER);
+        gw.addColorStop(0, rgba(TEAL_BRIGHT, 0.32));
         gw.addColorStop(0.5, rgba(TEAL, 0.20));
         gw.addColorStop(1, rgba(TEAL_DIM, 0.06));
         ctx.fillStyle = gw; ctx.fill();
@@ -292,25 +296,34 @@
         // foam crest tracing the top of the wave
         ctx.beginPath();
         for (var xf = 0; xf <= W; xf += step) {
-          var yf = waveY(xf, cx, wBack, wFront, h) + (Math.random() - 0.5) * 2;
+          var yf = waveY(xf, cx, wBack, wFront, h, t) + (Math.random() - 0.5) * 2;
           xf === 0 ? ctx.moveTo(0, yf) : ctx.lineTo(xf, yf);
         }
         ctx.strokeStyle = rgba(FOAM, 0.10 + hf * 0.20);
-        ctx.lineWidth = 1.6 + cf * 1.6; ctx.stroke();
+        ctx.lineWidth = 1.6 + cf * 1.8; ctx.stroke();
 
-        // curling lip at the crest apex + spray shedding as it topples
-        var apexY = H * WATER - h;
-        if (cf > 0.05) {
-          var lipX = cx + dir * wFront * 0.5;
+        // breaking whitewater sheeting down the steep front face (no floating blob)
+        if (cf > 0.08) {
+          var fEnd = cx + dir * wFront * 1.5;
+          var lo = Math.min(cx, fEnd), hi = Math.max(cx, fEnd);
           ctx.beginPath();
-          ctx.ellipse(lipX, apexY + 6, 10 + cf * 20, 6 + cf * 12, 0, 0, Math.PI * 2);
-          ctx.fillStyle = rgba(FOAM, 0.10 + cf * 0.28);
-          ctx.fill();
-          if (ph > 0.72 && particles.length < MAXP && Math.random() < 0.55) {
-            particles.push({ x: lipX + (Math.random() - 0.5) * 34, y: apexY,
-              vx: dir * (0.6 + Math.random() * 1.8) + (Math.random() - 0.5),
-              vy: -(0.4 + Math.random() * 1.4),
-              life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.8 + Math.random() * 2, grav: 0.16 });
+          var started = false;
+          for (var xc = lo; xc <= hi; xc += step) {
+            var yc = waveY(xc, cx, wBack, wFront, h, t);
+            started ? ctx.lineTo(xc, yc) : (ctx.moveTo(xc, yc), started = true);
+          }
+          ctx.lineTo(hi, H * WATER); ctx.lineTo(lo, H * WATER); ctx.closePath();
+          var fg = ctx.createLinearGradient(0, apexY, 0, H * WATER);
+          fg.addColorStop(0, rgba(FOAM, 0.12 + cf * 0.24));
+          fg.addColorStop(1, rgba(FOAM, 0.02));
+          ctx.fillStyle = fg; ctx.fill();
+
+          // spray flicking forward off the breaking crest
+          if (ph > 0.70 && particles.length < MAXP && Math.random() < 0.6) {
+            particles.push({ x: cx + dir * wFront * 0.4 + (Math.random() - 0.5) * 26, y: apexY,
+              vx: dir * (0.8 + Math.random() * 2.0) + (Math.random() - 0.5),
+              vy: -(0.6 + Math.random() * 1.8),
+              life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.7 + Math.random() * 1.9, grav: 0.16 });
           }
         }
       }
