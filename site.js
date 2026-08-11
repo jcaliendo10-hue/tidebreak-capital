@@ -177,53 +177,34 @@
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     }
 
-    // A single towering wave (tsunami-like) rises slowly, curls at the
-    // top, then crashes straight down into a broad splash — on a cycle.
-    var WATER = 0.92;     // waterline (fraction of hero height)
-    var MAXH  = 0.58;     // peak wave height (fraction of hero height)
+    // A breaking wave that sloshes side to side: it pops up where the last
+    // wave crashed, rolls across, curls into a plunging lip, and collapses
+    // forward — then the next wave rises on the far side. The silhouette is
+    // built from bezier control points morphed from a swell to a full curl.
+    var WATER = 0.90;      // waterline (fraction of hero height)
+    var BASE_WH = 0.56;    // wave height (fraction of hero height)
+    var BASE_BW = 0.42;    // wave width scale (fraction of hero width)
     var ripples = [];
     var MAXP = 460;
-    var CYCLE = 6000;     // ms per crash — alternates sides, so a full slosh is ~12s
+    var CYCLE = 6000;      // ms per crash — alternates sides, full slosh ~12s
     var lastCycle = -1, crashed = false, dir = 1;
 
     // gentle base chop behind the big wave
     var CHOP = [
-      { base: 0.87, amp: 8, len: 0.0016, spd: 0.004, col: TEAL_DIM, a: 0.08, k2: 0.0030, s2: 0.006 },
-      { base: 0.90, amp: 6, len: 0.0021, spd: 0.006, col: TEAL,     a: 0.10, k2: 0.0040, s2: 0.009 }
+      { base: 0.88, amp: 8, len: 0.0016, spd: 0.004, col: TEAL_DIM, a: 0.08, k2: 0.0030, s2: 0.006 },
+      { base: 0.91, amp: 6, len: 0.0021, spd: 0.006, col: TEAL,     a: 0.10, k2: 0.0040, s2: 0.009 }
     ];
 
     function easeInOut(p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
     function easeOut(p) { return 1 - Math.pow(1 - p, 3); }
-    function pick(seed) { var x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); }
-
-    // Wave height across the cycle: pops up fast, grows as it rolls
-    // across, towers and crashes at the far side, then hands off.
-    function heightF(ph) {
-      if (ph < 0.14) return easeOut(ph / 0.14) * 0.78;              // pop up quickly
-      if (ph < 0.80) return 0.78 + easeInOut((ph - 0.14) / 0.66) * 0.22; // grow while travelling
-      if (ph < 0.94) return 1 - easeInOut((ph - 0.80) / 0.14);      // crash down
-      return 0;
-    }
-    // Curl intensity peaks into the crash at the far side.
-    function curlF(ph) {
-      if (ph < 0.55) return 0;
-      if (ph < 0.80) return (ph - 0.55) / 0.25;
-      if (ph < 0.92) return 1 - (ph - 0.80) / 0.12;
-      return 0;
-    }
+    function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
     function chopY(L, x, t) { return H * L.base - Math.sin(x * L.len + t * L.spd) * L.amp - Math.sin(x * L.k2 + t * L.s2) * L.amp * 0.4; }
 
-    // Gentle continuous sea surface, so the wave reads as water not a blob.
-    function seaBase(x, t) { return Math.sin(x * 0.006 + t * 0.0016) * 7 + Math.sin(x * 0.011 - t * 0.0022) * 4; }
-    // Wave crest profile: asymmetric and sharpened to a peak — gentle back,
-    // steep leading face — so it looks like a wave, not a round bell.
-    function waveY(x, cx, wBack, wFront, h, t) {
-      var w = ((x < cx) === (dir > 0)) ? wBack : wFront;
-      var dx = (x - cx) / w;
-      var bump = Math.pow(Math.exp(-dx * dx * 2.0), 0.7); // pointier than a gaussian
-      return H * WATER - seaBase(x, t) - h * bump;
-    }
+    // Wave silhouette control points (x in half-widths, y in heights, crest at
+    // 0, waterline at 1). Morphed from SWELL to CURL by the curl amount.
+    var SWELL = [[-0.75, 1.0], [-0.58, 0.34], [-0.22, 0.02], [0, 0], [0.05, 0.14], [0.12, 0.34], [0.14, 0.5], [0.16, 0.66], [0.30, 0.86], [0.40, 1.0]];
+    var CURL  = [[-0.75, 1.0], [-0.58, 0.30], [-0.22, 0.0],  [0, 0], [0.03, 0.16], [0.10, 0.42], [0.07, 0.62], [0.02, 0.92], [0.32, 0.80], [0.52, 1.0]];
 
     // Broad splash where the wave collapses — thrown forward in the travel
     // direction (not straight up), tallest near the impact point.
@@ -250,7 +231,6 @@
       var cyc = Math.floor(t / CYCLE);
       var ph = (t % CYCLE) / CYCLE;
       if (cyc !== lastCycle) { lastCycle = cyc; crashed = false; }
-      var hf = heightF(ph), cf = curlF(ph);
       var step = Math.max(6, W / 260);
 
       // --- base chop ---
@@ -267,99 +247,74 @@
         ctx.fillStyle = g; ctx.fill();
       }
 
-      // --- the towering wave: sloshes side to side. It pops up where the
-      //     previous wave crashed, rolls across, and crashes on the far side ---
-      var h = hf * MAXH * H;
+      // --- choreography: pop up at riseX, roll to crashX, curl, collapse ---
       var even = (cyc % 2 === 0);
-      var riseX = even ? 0.20 : 0.80;   // pops up here (last crash point)
-      var crashX = even ? 0.80 : 0.20;  // crashes here (opposite side)
-      dir = crashX > riseX ? 1 : -1;
-      var travel = easeInOut(Math.min(ph / 0.80, 1));
-      var collapse = ph > 0.80 ? easeOut((ph - 0.80) / 0.15) : 0; // wave slumping forward as it breaks
-      var cx = (riseX + (crashX - riseX) * travel) * W + dir * collapse * 0.06 * W;
-      var wBack = 0.28 * W, wFront = (0.12 - cf * 0.05) * W; // gentle back, steep front
+      dir = even ? 1 : -1;
+      var riseX = even ? 0.20 : 0.80, crashX = even ? 0.80 : 0.20;
+      var travel = easeInOut(clamp01(ph / 0.60));
+      var curl = clamp01((ph - 0.15) / 0.42);                          // crest hooks into a lip
+      var kollapse = ph < 0.70 ? 0 : easeInOut(clamp01((ph - 0.70) / 0.22)); // lip plunges, wave subsides
+      var popup = ph < 0.15 ? easeOut(ph / 0.15) : 1;
+      var hs = popup * (1 - kollapse * 0.85);
+      var cx = (riseX + (crashX - riseX) * travel) * W + dir * kollapse * 0.05 * W;
+      var baseYw = H * WATER, BW = BASE_BW * W, WH = BASE_WH * H * hs, peakY = baseYw - WH;
 
-      if (h > 2) {
-        ctx.beginPath(); ctx.moveTo(0, H);
-        for (var xw = 0; xw <= W + step; xw += step) {
-          var yw = waveY(xw, cx, wBack, wFront, h, t);
-          xw === 0 ? ctx.lineTo(0, yw) : ctx.lineTo(xw, yw);
+      if (WH > 3) {
+        var Xf = function (f) { return cx + dir * f * BW; };
+        var Yf = function (f) { return peakY + f * WH; };
+        var B = [];
+        for (var bi = 0; bi < SWELL.length; bi++) {
+          B.push([SWELL[bi][0] + (CURL[bi][0] - SWELL[bi][0]) * curl,
+                  SWELL[bi][1] + (CURL[bi][1] - SWELL[bi][1]) * curl]);
         }
-        ctx.lineTo(W, H); ctx.closePath();
-        var apexY = waveY(cx, cx, wBack, wFront, h, t);
-        var gw = ctx.createLinearGradient(0, apexY, 0, H * WATER);
-        gw.addColorStop(0, rgba(TEAL_BRIGHT, 0.32));
+        // wave body
+        ctx.beginPath();
+        ctx.moveTo(dir > 0 ? 0 : W, H);
+        ctx.lineTo(Xf(B[0][0]), Yf(B[0][1]));
+        ctx.bezierCurveTo(Xf(B[1][0]), Yf(B[1][1]), Xf(B[2][0]), Yf(B[2][1]), Xf(B[3][0]), Yf(B[3][1]));
+        ctx.bezierCurveTo(Xf(B[4][0]), Yf(B[4][1]), Xf(B[5][0]), Yf(B[5][1]), Xf(B[6][0]), Yf(B[6][1]));
+        ctx.bezierCurveTo(Xf(B[7][0]), Yf(B[7][1]), Xf(B[8][0]), Yf(B[8][1]), Xf(B[9][0]), Yf(B[9][1]));
+        ctx.lineTo(dir > 0 ? W : 0, H); ctx.closePath();
+        var gw = ctx.createLinearGradient(0, peakY, 0, baseYw);
+        gw.addColorStop(0, rgba(TEAL_BRIGHT, 0.30));
         gw.addColorStop(0.5, rgba(TEAL, 0.20));
-        gw.addColorStop(1, rgba(TEAL_DIM, 0.06));
+        gw.addColorStop(1, rgba(TEAL_DIM, 0.08));
         ctx.fillStyle = gw; ctx.fill();
 
-        // foam crest tracing the top of the wave
-        ctx.beginPath();
-        for (var xf = 0; xf <= W; xf += step) {
-          var yf = waveY(xf, cx, wBack, wFront, h, t) + (Math.random() - 0.5) * 2;
-          xf === 0 ? ctx.moveTo(0, yf) : ctx.lineTo(xf, yf);
-        }
-        ctx.strokeStyle = rgba(FOAM, 0.10 + hf * 0.20);
-        ctx.lineWidth = 1.6 + cf * 1.8; ctx.stroke();
-
-        // whitewater sheeting down the steep front face
-        if (cf > 0.08) {
-          var fEnd = cx + dir * wFront * 1.5;
-          var lo = Math.min(cx, fEnd), hi = Math.max(cx, fEnd);
+        // curling lip — grows with curl, plunges forward as it collapses
+        if (curl > 0.02) {
+          var ky = kollapse * 0.5;
+          var LX = function (f) { return cx + dir * f * curl * BW; };
+          var LY = function (f) { return peakY + (f * curl + ky) * WH; };
           ctx.beginPath();
-          var started = false;
-          for (var xc = lo; xc <= hi; xc += step) {
-            var yc = waveY(xc, cx, wBack, wFront, h, t);
-            started ? ctx.lineTo(xc, yc) : (ctx.moveTo(xc, yc), started = true);
-          }
-          ctx.lineTo(hi, H * WATER); ctx.lineTo(lo, H * WATER); ctx.closePath();
-          var fg = ctx.createLinearGradient(0, apexY, 0, H * WATER);
-          fg.addColorStop(0, rgba(FOAM, 0.08 + cf * 0.16));
-          fg.addColorStop(1, rgba(FOAM, 0.02));
-          ctx.fillStyle = fg; ctx.fill();
-        }
-
-        // Curling lip: an overhanging hook at the crest that pitches
-        // forward (in travel dir) and plunges down as the wave collapses.
-        if (cf > 0.06 || collapse > 0) {
-          var s = dir, c = cf, k = collapse;
-          var reach = (0.30 + 0.55 * c) * h;             // how far forward the lip throws
-          var tipX = cx + s * reach;
-          var tipY = apexY - 0.06 * h + k * 0.75 * h;    // rises with curl, plunges as it breaks
-          var thick = (0.14 + 0.06 * c) * h;
-          // lip body (overhang forms a barrel; the hollow stays dark = the tube)
-          ctx.beginPath();
-          ctx.moveTo(cx - s * 0.06 * h, apexY + 0.04 * h);
-          ctx.bezierCurveTo(cx + s * 0.10 * h, apexY - 0.30 * h - 0.10 * h * c,
-                            tipX - s * 0.10 * h, tipY - 0.30 * h, tipX, tipY);
-          ctx.bezierCurveTo(tipX - s * 0.10 * h, tipY + thick,
-                            cx + s * 0.30 * h, apexY + 0.16 * h + k * 0.5 * h,
-                            cx + s * 0.04 * h, apexY + 0.14 * h);
+          ctx.moveTo(cx, peakY + ky * WH);
+          ctx.bezierCurveTo(LX(0.16), LY(-0.16), LX(0.42), LY(0.02), LX(0.34), LY(0.44));
+          ctx.bezierCurveTo(LX(0.30), LY(0.56), LX(0.14), LY(0.44), LX(0.10), LY(0.18));
           ctx.closePath();
-          var lg = ctx.createLinearGradient(0, apexY - 0.3 * h, 0, tipY + thick);
-          lg.addColorStop(0, rgba(FOAM, 0.20 + c * 0.18));
-          lg.addColorStop(0.5, rgba(TEAL_BRIGHT, 0.26));
-          lg.addColorStop(1, rgba(TEAL, 0.14));
+          var lg = ctx.createLinearGradient(0, peakY, 0, peakY + 0.5 * WH);
+          lg.addColorStop(0, rgba(FOAM, (0.55 + curl * 0.35) * (1 - kollapse * 0.6)));
+          lg.addColorStop(0.6, rgba(TEAL_BRIGHT, 0.55));
+          lg.addColorStop(1, rgba(TEAL, 0.40));
           ctx.fillStyle = lg; ctx.fill();
-          // bright foam rim along the leading edge of the lip
+          // bright foam rim on the leading edge of the lip
           ctx.beginPath();
-          ctx.moveTo(cx, apexY);
-          ctx.bezierCurveTo(cx + s * 0.10 * h, apexY - 0.30 * h - 0.10 * h * c,
-                            tipX - s * 0.10 * h, tipY - 0.30 * h, tipX, tipY);
-          ctx.strokeStyle = rgba(FOAM, 0.28 + c * 0.22);
-          ctx.lineWidth = 2 + c * 2; ctx.stroke();
-          // foam cascading forward-and-down off the tip as it topples
-          if (particles.length < MAXP && Math.random() < 0.45 + k * 0.4) {
+          ctx.moveTo(cx, peakY + ky * WH);
+          ctx.bezierCurveTo(LX(0.16), LY(-0.16), LX(0.42), LY(0.02), LX(0.34), LY(0.44));
+          ctx.strokeStyle = rgba(FOAM, (0.6 + curl * 0.3) * (1 - kollapse * 0.5));
+          ctx.lineWidth = 2 + curl * 2; ctx.stroke();
+          // foam cascading off the tip as it topples forward
+          var tipX = LX(0.34), tipY = LY(0.44);
+          if (particles.length < MAXP && Math.random() < 0.4 + kollapse * 0.4) {
             particles.push({ x: tipX + (Math.random() - 0.5) * 22, y: tipY,
-              vx: s * (1.0 + Math.random() * 2.2),
-              vy: -(0.2 + Math.random() * 0.9) + k * (0.6 + Math.random() * 0.8),
+              vx: dir * (0.8 + Math.random() * 2.2),
+              vy: -(0.2 + Math.random() * 0.8) + kollapse * (0.6 + Math.random() * 0.9),
               life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.7 + Math.random() * 2.0, grav: 0.16 });
           }
         }
       }
 
       // the crash: one broad splash where the wave meets the far side
-      if (!crashed && ph >= 0.80) { crashed = true; bigSplash(crashX * W, H * WATER - 2, 0.55 * W, dir); }
+      if (!crashed && ph >= 0.70) { crashed = true; bigSplash(crashX * W, H * WATER - 2, 0.5 * W, dir); }
 
       // --- spray particles ---
       for (var p = particles.length - 1; p >= 0; p--) {
