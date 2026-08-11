@@ -225,18 +225,17 @@
       return H * WATER - seaBase(x, t) - h * bump;
     }
 
-    // Broad splash when the wave crashes down — tallest in the middle.
-    function bigSplash(cx, y, spread) {
-      var n = 170 + Math.floor(Math.random() * 80);
+    // Broad splash where the wave collapses — thrown forward in the travel
+    // direction (not straight up), tallest near the impact point.
+    function bigSplash(cx, y, spread, sdir) {
+      var n = 150 + Math.floor(Math.random() * 70);
       for (var i = 0; i < n && particles.length < MAXP; i++) {
         var ox = (Math.random() - 0.5) * spread;
-        var up = 1.6 + Math.random() * 4.0 - Math.abs(ox) / spread * 1.6; // higher near centre
-        var ang = -Math.PI / 2 + (ox / spread) * 0.9 + (Math.random() - 0.5) * 0.5;
-        var sp = 1.0 + Math.random() * 3.0;
+        var up = 1.1 + Math.random() * 3.0 - Math.abs(ox) / spread * 1.1;
         particles.push({
           x: cx + ox, y: y,
-          vx: Math.cos(ang) * sp + ox * 0.012,
-          vy: -Math.max(0.4, up) + Math.sin(ang) * sp * 0.3,
+          vx: sdir * (0.8 + Math.random() * 2.6) + ox * 0.008, // thrown forward
+          vy: -Math.max(0.3, up),
           life: 1, decay: 0.008 + Math.random() * 0.010,
           r: 0.9 + Math.random() * 3.0, grav: 0.15 + Math.random() * 0.06
         });
@@ -276,7 +275,8 @@
       var crashX = even ? 0.80 : 0.20;  // crashes here (opposite side)
       dir = crashX > riseX ? 1 : -1;
       var travel = easeInOut(Math.min(ph / 0.80, 1));
-      var cx = (riseX + (crashX - riseX) * travel) * W;
+      var collapse = ph > 0.80 ? easeOut((ph - 0.80) / 0.15) : 0; // wave slumping forward as it breaks
+      var cx = (riseX + (crashX - riseX) * travel) * W + dir * collapse * 0.06 * W;
       var wBack = 0.28 * W, wFront = (0.12 - cf * 0.05) * W; // gentle back, steep front
 
       if (h > 2) {
@@ -302,7 +302,7 @@
         ctx.strokeStyle = rgba(FOAM, 0.10 + hf * 0.20);
         ctx.lineWidth = 1.6 + cf * 1.8; ctx.stroke();
 
-        // breaking whitewater sheeting down the steep front face (no floating blob)
+        // whitewater sheeting down the steep front face
         if (cf > 0.08) {
           var fEnd = cx + dir * wFront * 1.5;
           var lo = Math.min(cx, fEnd), hi = Math.max(cx, fEnd);
@@ -314,22 +314,52 @@
           }
           ctx.lineTo(hi, H * WATER); ctx.lineTo(lo, H * WATER); ctx.closePath();
           var fg = ctx.createLinearGradient(0, apexY, 0, H * WATER);
-          fg.addColorStop(0, rgba(FOAM, 0.12 + cf * 0.24));
+          fg.addColorStop(0, rgba(FOAM, 0.08 + cf * 0.16));
           fg.addColorStop(1, rgba(FOAM, 0.02));
           ctx.fillStyle = fg; ctx.fill();
+        }
 
-          // spray flicking forward off the breaking crest
-          if (ph > 0.70 && particles.length < MAXP && Math.random() < 0.6) {
-            particles.push({ x: cx + dir * wFront * 0.4 + (Math.random() - 0.5) * 26, y: apexY,
-              vx: dir * (0.8 + Math.random() * 2.0) + (Math.random() - 0.5),
-              vy: -(0.6 + Math.random() * 1.8),
-              life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.7 + Math.random() * 1.9, grav: 0.16 });
+        // Curling lip: an overhanging hook at the crest that pitches
+        // forward (in travel dir) and plunges down as the wave collapses.
+        if (cf > 0.06 || collapse > 0) {
+          var s = dir, c = cf, k = collapse;
+          var reach = (0.30 + 0.55 * c) * h;             // how far forward the lip throws
+          var tipX = cx + s * reach;
+          var tipY = apexY - 0.06 * h + k * 0.75 * h;    // rises with curl, plunges as it breaks
+          var thick = (0.14 + 0.06 * c) * h;
+          // lip body (overhang forms a barrel; the hollow stays dark = the tube)
+          ctx.beginPath();
+          ctx.moveTo(cx - s * 0.06 * h, apexY + 0.04 * h);
+          ctx.bezierCurveTo(cx + s * 0.10 * h, apexY - 0.30 * h - 0.10 * h * c,
+                            tipX - s * 0.10 * h, tipY - 0.30 * h, tipX, tipY);
+          ctx.bezierCurveTo(tipX - s * 0.10 * h, tipY + thick,
+                            cx + s * 0.30 * h, apexY + 0.16 * h + k * 0.5 * h,
+                            cx + s * 0.04 * h, apexY + 0.14 * h);
+          ctx.closePath();
+          var lg = ctx.createLinearGradient(0, apexY - 0.3 * h, 0, tipY + thick);
+          lg.addColorStop(0, rgba(FOAM, 0.20 + c * 0.18));
+          lg.addColorStop(0.5, rgba(TEAL_BRIGHT, 0.26));
+          lg.addColorStop(1, rgba(TEAL, 0.14));
+          ctx.fillStyle = lg; ctx.fill();
+          // bright foam rim along the leading edge of the lip
+          ctx.beginPath();
+          ctx.moveTo(cx, apexY);
+          ctx.bezierCurveTo(cx + s * 0.10 * h, apexY - 0.30 * h - 0.10 * h * c,
+                            tipX - s * 0.10 * h, tipY - 0.30 * h, tipX, tipY);
+          ctx.strokeStyle = rgba(FOAM, 0.28 + c * 0.22);
+          ctx.lineWidth = 2 + c * 2; ctx.stroke();
+          // foam cascading forward-and-down off the tip as it topples
+          if (particles.length < MAXP && Math.random() < 0.45 + k * 0.4) {
+            particles.push({ x: tipX + (Math.random() - 0.5) * 22, y: tipY,
+              vx: s * (1.0 + Math.random() * 2.2),
+              vy: -(0.2 + Math.random() * 0.9) + k * (0.6 + Math.random() * 0.8),
+              life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.7 + Math.random() * 2.0, grav: 0.16 });
           }
         }
       }
 
       // the crash: one broad splash where the wave meets the far side
-      if (!crashed && ph >= 0.80) { crashed = true; bigSplash(crashX * W, H * WATER - 2, 0.5 * W); }
+      if (!crashed && ph >= 0.80) { crashed = true; bigSplash(crashX * W, H * WATER - 2, 0.55 * W, dir); }
 
       // --- spray particles ---
       for (var p = particles.length - 1; p >= 0; p--) {
