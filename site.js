@@ -154,8 +154,31 @@
      Palette-matched layered swells with foam/spray particles
      shed off the breaking crest. Self-contained, no assets.
      ========================================================= */
-  var canvas = hero ? hero.querySelector(".herowaves-canvas") : null;
   var wavesWrap = hero ? hero.querySelector(".herowaves") : null;
+
+  // Hero background video: fade in when it starts, pause under reduced motion
+  // or when off-screen / tab hidden (battery & data friendly).
+  var heroVideo = hero ? hero.querySelector(".herowaves-video") : null;
+  if (heroVideo && wavesWrap) {
+    var showVideo = function () { wavesWrap.classList.add("on"); };
+    if (heroVideo.readyState >= 2) showVideo();
+    heroVideo.addEventListener("playing", showVideo);
+    heroVideo.addEventListener("loadeddata", showVideo);
+    if (reduce) { try { heroVideo.pause(); } catch (e) {} showVideo(); }
+    else {
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) { try { heroVideo.pause(); } catch (e) {} }
+        else { var p = heroVideo.play(); if (p && p.catch) p.catch(function () {}); }
+      });
+      window.addEventListener("scroll", function () {
+        var off = (window.pageYOffset || docEl.scrollTop) > window.innerHeight;
+        if (off) { try { heroVideo.pause(); } catch (e) {} }
+        else if (!document.hidden) { var p = heroVideo.play(); if (p && p.catch) p.catch(function () {}); }
+      }, { passive: true });
+    }
+  }
+
+  var canvas = null; // procedural canvas replaced by the background video
   if (canvas && canvas.getContext) {
     var ctx = canvas.getContext("2d");
     var W = 0, H = 0, DPR = 1;

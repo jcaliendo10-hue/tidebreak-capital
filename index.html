@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 
@@ -44,7 +44,10 @@
 <!-- ================= HERO ================= -->
 <header class="hero has-waves">
   <div class="herowaves" aria-hidden="true">
-    <canvas class="herowaves-canvas"></canvas>
+    <video class="herowaves-video" autoplay muted loop playsinline preload="auto">
+      <source src="waves.mp4" type="video/mp4">
+    </video>
+    <div class="herowaves-tint"></div>
     <div class="herowaves-scrim"></div>
   </div>
   <div class="wavefield" aria-hidden="true">
@@ -285,6 +288,6 @@
   </div>
 </footer>
 
-<script src="site.js?v=10"></script>
+<script src="site.js?v=11"></script>
 </body>
 </html>
