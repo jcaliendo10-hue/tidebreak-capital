@@ -320,3 +320,94 @@ footer.site .fcol a:hover{color:var(--accent);}
   padding-top:24px;max-width:960px;}
 .legalrow{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:20px;
   font-size:12px;color:var(--ink-faint);}
+
+/* ============================================================
+   VISUAL ENHANCEMENTS  (premium depth, motion & micro-interaction)
+   Injected globally via site.js so every page inherits them.
+   ============================================================ */
+
+/* ---- scroll progress hairline ---- */
+.scrollbar{position:fixed;top:0;left:0;height:2px;width:0;z-index:200;pointer-events:none;
+  background:linear-gradient(90deg,var(--accent-deep),var(--accent),var(--gold));
+  box-shadow:0 0 12px rgba(121,176,168,.6);transition:width .1s linear;}
+
+/* ---- filmic grain overlay (global, very subtle) ---- */
+.grain{position:fixed;inset:0;z-index:150;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:200px 200px;}
+@media(prefers-reduced-motion:reduce){.grain{display:none;}}
+
+/* ---- nav condenses & sharpens on scroll ---- */
+nav.site{transition:background .35s var(--ease),box-shadow .35s var(--ease),border-color .35s var(--ease);}
+nav.site .wrap{transition:height .35s var(--ease);}
+nav.site.scrolled{background:rgba(5,13,24,0.9);border-color:var(--line-strong);
+  box-shadow:0 16px 44px -26px rgba(0,0,0,.8);}
+nav.site.scrolled .wrap{height:58px;}
+
+/* ============================ HERO++ ============================ */
+/* soft light-source glow that tracks the cursor */
+.hero .glow{position:absolute;z-index:1;pointer-events:none;
+  width:960px;height:960px;left:70%;top:-46%;transform:translate3d(var(--gx,0),var(--gy,0),0);
+  background:radial-gradient(circle,rgba(143,199,189,.17),rgba(121,176,168,.06) 42%,transparent 68%);
+  transition:transform .5s var(--ease);will-change:transform;}
+/* faint volumetric light shafts */
+.hero .shafts{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.4;
+  background:repeating-linear-gradient(102deg,transparent 0 64px,rgba(143,199,189,.045) 64px 65px);
+  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.85),transparent 72%);
+  mask-image:linear-gradient(180deg,rgba(0,0,0,.85),transparent 72%);}
+/* depth vignette */
+.hero::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(130% 90% at 50% -8%,transparent 52%,rgba(5,15,26,.55));}
+/* wavefield gains parallax + a gentle bob */
+.wavefield{transition:transform .25s var(--ease);will-change:transform;}
+/* hero copy floats up on load with a soft blur clearing */
+.hero .wrap .reveal{filter:blur(6px);}
+.hero .wrap .reveal.in{filter:blur(0);}
+
+/* animated gradient sheen + drawn underline on the emphasized word */
+.hero h1 em{position:relative;font-style:italic;color:var(--accent);
+  background:linear-gradient(100deg,var(--accent-bright) 0%,var(--gold) 50%,var(--accent-bright) 100%);
+  background-size:220% 100%;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;animation:sheen 7s ease-in-out infinite;}
+.hero h1 em::after{content:"";position:absolute;left:2px;right:2px;bottom:-6px;height:2px;
+  transform:scaleX(0);transform-origin:left;border-radius:2px;
+  background:linear-gradient(90deg,var(--accent),var(--gold));
+  animation:draw 1.1s var(--ease) forwards;animation-delay:1.1s;}
+@keyframes sheen{0%,100%{background-position:0 0;}50%{background-position:100% 0;}}
+@keyframes draw{to{transform:scaleX(1);}}
+@media(prefers-reduced-motion:reduce){
+  .hero h1 em{animation:none;-webkit-text-fill-color:currentColor;color:var(--accent);background:none;}
+  .hero h1 em::after{animation:none;transform:scaleX(1);}
+  .hero .wrap .reveal{filter:none;}
+}
+
+/* ---- cursor spotlight + lift on cards (shared surfaces) ---- */
+.stat,.pillar,.fcard,.member,.insight,.ent{position:relative;overflow:hidden;
+  transition:transform .35s var(--ease),border-color .35s var(--ease),box-shadow .35s var(--ease),background .3s var(--ease);}
+.spot::before{content:"";position:absolute;inset:0;z-index:0;opacity:0;pointer-events:none;
+  transition:opacity .4s var(--ease);
+  background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(121,176,168,.15),transparent 62%);}
+.spot:hover::before{opacity:1;}
+.stat>*,.pillar>*,.fcard>*,.member>*,.insight>*,.ent>*{position:relative;z-index:1;}
+.pillar:hover,.fcard:hover,.member:hover,.insight:hover{
+  box-shadow:0 26px 60px -34px rgba(121,176,168,.55);}
+.member:hover,.fcard:hover{transform:translateY(-4px);}
+/* stat numbers get a faint halo */
+.stat .n{text-shadow:0 0 34px rgba(121,176,168,.28);}
+.stat:hover{background:var(--navy-800);}
+
+/* ---- buttons: sheen sweep on hover ---- */
+.btn-solid{position:relative;overflow:hidden;}
+.btn-solid::after{content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.35),transparent);
+  transform:skewX(-18deg);transition:left .6s var(--ease);}
+.btn-solid:hover::after{left:130%;}
+
+/* ---- section top-edge shimmer on the deep bands ---- */
+.bg-deep,.bg-deepest,.band{position:relative;}
+.bg-deep::before,.bg-deepest::before,.band::before{content:"";position:absolute;top:-1px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent-dim),transparent);opacity:.5;}
+
+/* ---- richer scroll-reveal: slight scale + blur clearing ---- */
+.reveal{transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease);}
+@media(prefers-reduced-motion:reduce){.reveal{filter:none;}}

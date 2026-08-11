@@ -73,4 +73,79 @@
   // Footer year
   var y = document.querySelector("#yr");
   if (y) y.textContent = new Date().getFullYear();
+
+  /* =========================================================
+     Premium visual layer — grain, scroll progress, condensing
+     nav, cursor spotlight on cards, and hero light/parallax.
+     All additive and reduced-motion aware.
+     ========================================================= */
+
+  // Grain overlay (skipped under reduced motion via CSS display:none)
+  var grain = document.createElement("div");
+  grain.className = "grain";
+  document.body.appendChild(grain);
+
+  // Scroll progress hairline
+  var bar = document.createElement("div");
+  bar.className = "scrollbar";
+  document.body.appendChild(bar);
+
+  var nav = document.querySelector("nav.site");
+  var hero = document.querySelector(".hero");
+  var glow = null, wavefield = null;
+
+  // Inject hero light-source glow + volumetric shafts
+  if (hero) {
+    var shafts = document.createElement("div");
+    shafts.className = "shafts";
+    glow = document.createElement("div");
+    glow.className = "glow";
+    hero.insertBefore(shafts, hero.firstChild);
+    hero.insertBefore(glow, hero.firstChild);
+    wavefield = hero.querySelector(".wavefield");
+  }
+
+  // Mark shared card surfaces as spotlight targets
+  var cards = document.querySelectorAll(".stat,.pillar,.fcard,.member,.insight,.ent");
+  cards.forEach(function (c) {
+    c.classList.add("spot");
+    c.addEventListener("pointermove", function (e) {
+      var r = c.getBoundingClientRect();
+      c.style.setProperty("--mx", (e.clientX - r.left) + "px");
+      c.style.setProperty("--my", (e.clientY - r.top) + "px");
+    });
+  });
+
+  var docEl = document.documentElement;
+  var ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () {
+      var st = window.pageYOffset || docEl.scrollTop;
+      // progress bar
+      var h = docEl.scrollHeight - docEl.clientHeight;
+      bar.style.width = (h > 0 ? (st / h) * 100 : 0) + "%";
+      // condensing nav
+      if (nav) nav.classList.toggle("scrolled", st > 24);
+      // hero parallax (only while hero is in view)
+      if (wavefield && !reduce && st < window.innerHeight) {
+        wavefield.style.transform = "translateY(" + (st * 0.18) + "px)";
+      }
+      ticking = false;
+    });
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  // Hero glow follows the cursor for a soft parallax light
+  if (hero && glow && !reduce) {
+    hero.addEventListener("pointermove", function (e) {
+      var r = hero.getBoundingClientRect();
+      var dx = (e.clientX - r.left) / r.width - 0.5;
+      var dy = (e.clientY - r.top) / r.height - 0.5;
+      glow.style.setProperty("--gx", (dx * 60) + "px");
+      glow.style.setProperty("--gy", (dy * 40) + "px");
+    });
+  }
 })();
