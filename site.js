@@ -177,48 +177,66 @@
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     }
 
-    // Ambient swells (slow, calm) sit behind one breaker that
-    // builds up, crashes, throws a splash, then settles — on a cycle.
-    var SWELLS = [
-      { base: 0.66, amp: 12, len: 0.0015, spd: 0.0040, col: TEAL_DIM, a: 0.09, k2: 0.0031, s2: 0.0070 },
-      { base: 0.76, amp: 16, len: 0.0011, spd: 0.0060, col: TEAL,     a: 0.12, k2: 0.0024, s2: 0.0100 }
-    ];
-    var BR = { base: 0.86, len: 0.0009, spd: 0.010, col: TEAL_BRIGHT, k2: 0.0016, s2: 0.014 };
-
+    // A single towering wave (tsunami-like) rises slowly, curls at the
+    // top, then crashes straight down into a broad splash — on a cycle.
+    var WATER = 0.92;     // waterline (fraction of hero height)
+    var MAXH  = 0.58;     // peak wave height (fraction of hero height)
     var ripples = [];
-    var MAXP = 320;
-    var CYCLE = 7000;                 // ms per wave — slow
-    var lastCycle = -1, crashed = false, breakX = 0.6;
+    var MAXP = 460;
+    var CYCLE = 9000;     // ms — slow and grand
+    var lastCycle = -1, crashed = false, dir = 1;
+
+    // gentle base chop behind the big wave
+    var CHOP = [
+      { base: 0.87, amp: 8, len: 0.0016, spd: 0.004, col: TEAL_DIM, a: 0.08, k2: 0.0030, s2: 0.006 },
+      { base: 0.90, amp: 6, len: 0.0021, spd: 0.006, col: TEAL,     a: 0.10, k2: 0.0040, s2: 0.009 }
+    ];
 
     function easeInOut(p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
+    function easeOut(p) { return 1 - Math.pow(1 - p, 3); }
     function pick(seed) { var x = Math.sin(seed * 12.9898) * 43758.5453; return x - Math.floor(x); }
 
-    // Energy curve across a cycle: slow build to a peak, sharp crash, calm.
-    function energy(ph) {
-      if (ph < 0.72) return easeInOut(ph / 0.72);   // build
-      if (ph < 0.82) return 1 - (ph - 0.72) / 0.10; // crash (drop to 0)
-      return 0;                                      // calm
+    // Wave height across the cycle: slow tower rise, hang, slow crash, calm.
+    function heightF(ph) {
+      if (ph < 0.56) return easeOut(ph / 0.56);            // slow rise to full height
+      if (ph < 0.64) return 1;                             // hang at the top (curl)
+      if (ph < 0.86) return 1 - easeInOut((ph - 0.64) / 0.22); // crash down
+      return 0;                                            // calm
+    }
+    // Curl intensity peaks just before/into the crash.
+    function curlF(ph) {
+      if (ph < 0.48) return 0;
+      if (ph < 0.64) return (ph - 0.48) / 0.16;
+      if (ph < 0.80) return 1 - (ph - 0.64) / 0.16;
+      return 0;
     }
 
-    function crestOf(base, amp, len, spd, k2, s2, x, t) {
-      return H * base - Math.sin(x * len + t * spd) * amp - Math.sin(x * k2 + t * s2) * amp * 0.4;
+    function chopY(L, x, t) { return H * L.base - Math.sin(x * L.len + t * L.spd) * L.amp - Math.sin(x * L.k2 + t * L.s2) * L.amp * 0.4; }
+
+    // Front profile of the big wave: skewed bell, steep on the leading side.
+    function waveY(x, cx, wBack, wFront, h) {
+      var w = ((x < cx) === (dir > 0)) ? wBack : wFront;
+      var dx = (x - cx) / w;
+      return H * WATER - h * Math.exp(-dx * dx * 2.0);
     }
 
-    // Burst of foam thrown up when the wave breaks — arcs up ~150px then falls.
-    function splash(x, y) {
-      var n = 80 + Math.floor(Math.random() * 45);
+    // Broad splash when the wave crashes down — tallest in the middle.
+    function bigSplash(cx, y, spread) {
+      var n = 170 + Math.floor(Math.random() * 80);
       for (var i = 0; i < n && particles.length < MAXP; i++) {
-        var ang = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI * 0.7);
-        var sp = 1.2 + Math.random() * 3.2;
+        var ox = (Math.random() - 0.5) * spread;
+        var up = 1.6 + Math.random() * 4.0 - Math.abs(ox) / spread * 1.6; // higher near centre
+        var ang = -Math.PI / 2 + (ox / spread) * 0.9 + (Math.random() - 0.5) * 0.5;
+        var sp = 1.0 + Math.random() * 3.0;
         particles.push({
-          x: x + (Math.random() - 0.5) * 30, y: y,
-          vx: Math.cos(ang) * sp,
-          vy: Math.sin(ang) * sp * 0.9 - (0.8 + Math.random() * 1.9),
-          life: 1, decay: 0.010 + Math.random() * 0.012,
-          r: 0.8 + Math.random() * 2.5, grav: 0.15 + Math.random() * 0.06
+          x: cx + ox, y: y,
+          vx: Math.cos(ang) * sp + ox * 0.012,
+          vy: -Math.max(0.4, up) + Math.sin(ang) * sp * 0.3,
+          life: 1, decay: 0.008 + Math.random() * 0.010,
+          r: 0.9 + Math.random() * 3.0, grav: 0.15 + Math.random() * 0.06
         });
       }
-      ripples.push({ x: x, y: y, r: 6, life: 1 });
+      ripples.push({ x: cx, y: y, r: 12, life: 1, w: spread });
     }
 
     function frame(t) {
@@ -227,60 +245,79 @@
 
       var cyc = Math.floor(t / CYCLE);
       var ph = (t % CYCLE) / CYCLE;
-      if (cyc !== lastCycle) { lastCycle = cyc; crashed = false; breakX = 0.42 + pick(cyc + 1) * 0.36; }
-      var e = energy(ph);
-      var step = Math.max(6, W / 240);
+      if (cyc !== lastCycle) { lastCycle = cyc; crashed = false; dir = pick(cyc + 1) > 0.5 ? 1 : -1; }
+      var hf = heightF(ph), cf = curlF(ph);
+      var step = Math.max(6, W / 260);
 
-      // --- ambient swells ---
-      for (var i = 0; i < SWELLS.length; i++) {
-        var L = SWELLS[i];
+      // --- base chop ---
+      for (var i = 0; i < CHOP.length; i++) {
+        var L = CHOP[i];
         ctx.beginPath(); ctx.moveTo(0, H);
         for (var x = 0; x <= W + step; x += step) {
-          var y = crestOf(L.base, L.amp, L.len, L.spd, L.k2, L.s2, x, t);
+          var y = chopY(L, x, t);
           x === 0 ? ctx.lineTo(0, y) : ctx.lineTo(x, y);
         }
         ctx.lineTo(W, H); ctx.closePath();
         var g = ctx.createLinearGradient(0, H * L.base - L.amp, 0, H);
-        g.addColorStop(0, rgba(L.col, L.a)); g.addColorStop(1, rgba(L.col, L.a * 0.15));
+        g.addColorStop(0, rgba(L.col, L.a)); g.addColorStop(1, rgba(L.col, L.a * 0.2));
         ctx.fillStyle = g; ctx.fill();
       }
 
-      // --- breaker: rises with energy, crashes at the peak ---
-      var brAmp = 14 + e * 34;
-      ctx.beginPath(); ctx.moveTo(0, H);
-      for (var xb = 0; xb <= W + step; xb += step) {
-        var yb = crestOf(BR.base, brAmp, BR.len, BR.spd, BR.k2, BR.s2, xb, t);
-        xb === 0 ? ctx.lineTo(0, yb) : ctx.lineTo(xb, yb);
-      }
-      ctx.lineTo(W, H); ctx.closePath();
-      var gb = ctx.createLinearGradient(0, H * BR.base - brAmp, 0, H);
-      gb.addColorStop(0, rgba(BR.col, 0.14 + e * 0.12));
-      gb.addColorStop(1, rgba(BR.col, 0.03));
-      ctx.fillStyle = gb; ctx.fill();
+      // --- the towering wave ---
+      var h = hf * MAXH * H;
+      var startX = dir > 0 ? 0.12 : 0.88, endX = dir > 0 ? 0.68 : 0.32;
+      var travel = Math.min(ph / 0.64, 1);
+      var cx = (startX + (endX - startX) * easeOut(travel)) * W;
+      var wBack = 0.34 * W, wFront = (0.15 - cf * 0.06) * W; // front steepens as it curls
 
-      // foam line on the crest, brightening as it peaks
-      ctx.beginPath();
-      for (var xf = 0; xf <= W; xf += step) {
-        var yf = crestOf(BR.base, brAmp, BR.len, BR.spd, BR.k2, BR.s2, xf, t) + (Math.random() - 0.5) * 1.6;
-        xf === 0 ? ctx.moveTo(0, yf) : ctx.lineTo(xf, yf);
-      }
-      ctx.strokeStyle = rgba(FOAM, 0.06 + e * 0.16);
-      ctx.lineWidth = 1.3; ctx.stroke();
+      if (h > 2) {
+        ctx.beginPath(); ctx.moveTo(0, H);
+        for (var xw = 0; xw <= W + step; xw += step) {
+          var yw = waveY(xw, cx, wBack, wFront, h);
+          xw === 0 ? ctx.lineTo(0, yw) : ctx.lineTo(xw, yw);
+        }
+        ctx.lineTo(W, H); ctx.closePath();
+        var top = H * WATER - h;
+        var gw = ctx.createLinearGradient(0, top, 0, H * WATER);
+        gw.addColorStop(0, rgba(TEAL_BRIGHT, 0.30));
+        gw.addColorStop(0.5, rgba(TEAL, 0.20));
+        gw.addColorStop(1, rgba(TEAL_DIM, 0.06));
+        ctx.fillStyle = gw; ctx.fill();
 
-      // pre-crash droplets near the swelling crest, then the crash splash
-      var bx = breakX * W;
-      var by = crestOf(BR.base, brAmp, BR.len, BR.spd, BR.k2, BR.s2, bx, t);
-      if (e > 0.5 && Math.random() < (e - 0.5) * 0.5 && particles.length < MAXP) {
-        particles.push({ x: bx + (Math.random() - 0.5) * 60, y: by,
-          vx: (Math.random() - 0.5) * 1.2, vy: -(0.6 + Math.random() * 1.2),
-          life: 1, decay: 0.02 + Math.random() * 0.02, r: 0.6 + Math.random() * 1.4, grav: 0.15 });
+        // foam crest tracing the top of the wave
+        ctx.beginPath();
+        for (var xf = 0; xf <= W; xf += step) {
+          var yf = waveY(xf, cx, wBack, wFront, h) + (Math.random() - 0.5) * 2;
+          xf === 0 ? ctx.moveTo(0, yf) : ctx.lineTo(xf, yf);
+        }
+        ctx.strokeStyle = rgba(FOAM, 0.10 + hf * 0.20);
+        ctx.lineWidth = 1.6 + cf * 1.6; ctx.stroke();
+
+        // curling lip at the crest apex + spray shedding as it topples
+        var apexY = H * WATER - h;
+        if (cf > 0.05) {
+          var lipX = cx + dir * wFront * 0.5;
+          ctx.beginPath();
+          ctx.ellipse(lipX, apexY + 6, 10 + cf * 20, 6 + cf * 12, 0, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(FOAM, 0.10 + cf * 0.28);
+          ctx.fill();
+          if (ph > 0.60 && particles.length < MAXP && Math.random() < 0.55) {
+            particles.push({ x: lipX + (Math.random() - 0.5) * 34, y: apexY,
+              vx: dir * (0.6 + Math.random() * 1.8) + (Math.random() - 0.5),
+              vy: -(0.4 + Math.random() * 1.4),
+              life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.8 + Math.random() * 2, grav: 0.16 });
+          }
+        }
       }
-      if (!crashed && ph >= 0.72) { crashed = true; splash(bx, by); }
+
+      // the crash: one broad splash at the impact line
+      var impactX = (dir > 0 ? 0.68 : 0.32) * W;
+      if (!crashed && ph >= 0.64) { crashed = true; bigSplash(impactX, H * WATER - 2, 0.5 * W); }
 
       // --- spray particles ---
       for (var p = particles.length - 1; p >= 0; p--) {
         var P = particles[p];
-        P.x += P.vx; P.y += P.vy; P.vy += (P.grav || 0.05);
+        P.x += P.vx; P.y += P.vy; P.vy += (P.grav || 0.15); P.vx *= 0.985; // air drag
         P.life -= P.decay;
         if (P.life <= 0 || P.y > H) { particles.splice(p, 1); continue; }
         ctx.beginPath(); ctx.arc(P.x, P.y, P.r, 0, Math.PI * 2);
@@ -291,12 +328,13 @@
       // --- expanding foam ring where it broke ---
       for (var r0 = ripples.length - 1; r0 >= 0; r0--) {
         var R = ripples[r0];
-        R.r += 1.4; R.life -= 0.02;
+        R.r += 2.2; R.life -= 0.018;
         if (R.life <= 0) { ripples.splice(r0, 1); continue; }
+        var rr = Math.min(R.r, (R.w || W));
         ctx.beginPath();
-        ctx.ellipse(R.x, R.y, R.r, R.r * 0.32, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = rgba(FOAM, Math.max(0, R.life) * 0.14);
-        ctx.lineWidth = 1.1; ctx.stroke();
+        ctx.ellipse(R.x, R.y, rr, rr * 0.22, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba(FOAM, Math.max(0, R.life) * 0.13);
+        ctx.lineWidth = 1.2; ctx.stroke();
       }
 
       if (!booted && wavesWrap) { wavesWrap.classList.add("on"); booted = true; }
