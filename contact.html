@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LP Access &amp; Contact — Tidebreak Capital</title>
+<meta name="description" content="Request LP access to Tidebreak Capital. Materials are for qualified investors only.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<nav class="site">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+        <g fill="none" stroke="#79b0a8" stroke-width="3.4" stroke-linecap="round">
+          <path d="M8 42 q8 -10 16 0 t16 0" opacity="0.55"/>
+          <path d="M8 30 q8 -10 16 0 t16 0" opacity="0.9"/>
+          <path d="M40 30 q8 -10 16 0" opacity="0.4"/>
+        </g>
+        <line x1="34" y1="12" x2="34" y2="52" stroke="#c9a86a" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+      </svg>
+      <span><b>Tidebreak</b><span>.</span> Capital</span>
+    </a>
+    <button class="navtoggle" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <div class="navlinks">
+      <a class="link" href="index.html">Home</a>
+      <a class="link" href="approach.html">Approach</a>
+      <a class="link" href="team.html">Team</a>
+      <a class="link" href="insights.html">Insights</a>
+      <a class="link" href="firm.html">Firm</a>
+      <a class="btn" href="contact.html">LP Access</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero compact">
+  <div class="wrap">
+    <span class="eyebrow reveal">LP Access &amp; Contact</span>
+    <h1 class="serif reveal d1">The materials that follow are for <em>qualified investors</em>.</h1>
+    <p class="sub reveal d2">Deck, diligence materials, and terms live behind access. Tell us a little about your firm and we'll be in touch. Introductions welcome.</p>
+  </div>
+  <div class="horizon"></div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="split" style="grid-template-columns:1.05fr .95fr;">
+      <div class="reveal">
+        <div class="formcard">
+          <form id="lpform" novalidate>
+            <div class="formrow">
+              <div class="field">
+                <label for="fname">First name</label>
+                <input id="fname" name="fname" type="text" required autocomplete="given-name">
+              </div>
+              <div class="field">
+                <label for="lname">Last name</label>
+                <input id="lname" name="lname" type="text" required autocomplete="family-name">
+              </div>
+            </div>
+            <div class="field">
+              <label for="email">Work email</label>
+              <input id="email" name="email" type="email" required autocomplete="email">
+            </div>
+            <div class="field">
+              <label for="firm">Firm / organization</label>
+              <input id="firm" name="firm" type="text" autocomplete="organization">
+            </div>
+            <div class="field">
+              <label for="type">Investor type</label>
+              <select id="type" name="type">
+                <option value="">Select…</option>
+                <option>Family office</option>
+                <option>Institutional / endowment</option>
+                <option>Fund of funds</option>
+                <option>Qualified individual</option>
+                <option>Advisor / consultant</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="msg">What would you like to see?</label>
+              <textarea id="msg" name="msg" placeholder="Deck, terms, an introductory call…"></textarea>
+            </div>
+            <button type="submit" class="btn-solid" style="width:100%;">Request Access</button>
+            <p class="formnote">By submitting, you confirm you are a qualified investor or an advisor to one. This is not an offer to sell securities. <span class="faint">Demo form — connect to email or a CRM before launch (setup notes in the README).</span></p>
+          </form>
+          <div id="formok" style="display:none;text-align:center;padding:20px 6px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#79b0a8" stroke-width="1.6" style="width:52px;height:52px;margin:0 auto 16px;"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+            <h3 class="serif" style="font-size:24px;font-weight:400;margin-bottom:10px;">Request received.</h3>
+            <p class="muted">Thank you. A member of the team will follow up at the email you provided.</p>
+          </div>
+        </div>
+      </div>
+      <div class="reveal d1">
+        <span class="eyebrow">Direct</span>
+        <p class="kicker serif" style="font-size:26px;margin:14px 0 24px;">Prefer to reach us directly?</p>
+        <div class="kv" style="grid-template-columns:1fr;gap:26px;margin-top:0;">
+          <div class="item"><h4>Investor Relations</h4><p><a href="mailto:ir@tidebreak-cap.com" class="hl">ir@tidebreak-cap.com</a></p></div>
+          <div class="item"><h4>General Inquiries</h4><p><a href="mailto:info@tidebreak-cap.com" class="hl">info@tidebreak-cap.com</a></p></div>
+          <div class="item"><h4>What Happens Next</h4><p>We review every request individually. Qualified investors receive access to the deck, diligence materials, and terms under confidentiality.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="top">
+      <a class="brand serif" href="index.html">Tidebreak<span style="color:var(--accent)">.</span> Capital</a>
+      <div class="fcols">
+        <div class="fcol"><h5>Navigate</h5><a href="approach.html">Approach</a><a href="team.html">Team</a><a href="insights.html">Insights</a><a href="firm.html">Firm</a></div>
+        <div class="fcol"><h5>Investors</h5><a href="contact.html">LP Access</a><a href="contact.html">Request Materials</a><a href="contact.html">Contact</a></div>
+        <div class="fcol"><h5>Firm</h5><a href="firm.html">Structure</a><a href="firm.html">Information Barriers</a><a href="insights.html">Compliance</a></div>
+      </div>
+    </div>
+    <p class="disclosure">
+      This website is for informational purposes only and does not constitute an offer to sell or a solicitation of an offer to buy any security. Any such offer will be made only to qualified investors and only by means of confidential offering documents, which should be reviewed carefully. Nothing herein constitutes investment, legal, or tax advice. Past performance is not indicative of future results; all investments involve risk, including the possible loss of principal. Tidebreak Capital and its affiliated advocacy and consulting entities operate under information barriers designed to ensure the fund transacts only on publicly available information.
+    </p>
+    <div class="legalrow">
+      <span>© <span id="yr">2026</span> Tidebreak Capital. All rights reserved.</span>
+      <span>Catalyzing momentum · Creating opportunity · Delivering calm</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/site.js"></script>
+</body>
+</html>
