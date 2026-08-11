@@ -281,34 +281,20 @@
         gw.addColorStop(1, rgba(TEAL_DIM, 0.08));
         ctx.fillStyle = gw; ctx.fill();
 
-        // curling lip — grows with curl, plunges forward as it collapses
+        // foam highlight tracing the breaking crest edge (no filled lip blob)
         if (curl > 0.02) {
-          var ky = kollapse * 0.5;
-          var LX = function (f) { return cx + dir * f * curl * BW; };
-          var LY = function (f) { return peakY + (f * curl + ky) * WH; };
           ctx.beginPath();
-          ctx.moveTo(cx, peakY + ky * WH);
-          ctx.bezierCurveTo(LX(0.16), LY(-0.16), LX(0.42), LY(0.02), LX(0.34), LY(0.44));
-          ctx.bezierCurveTo(LX(0.30), LY(0.56), LX(0.14), LY(0.44), LX(0.10), LY(0.18));
-          ctx.closePath();
-          var lg = ctx.createLinearGradient(0, peakY, 0, peakY + 0.5 * WH);
-          lg.addColorStop(0, rgba(FOAM, (0.55 + curl * 0.35) * (1 - kollapse * 0.6)));
-          lg.addColorStop(0.6, rgba(TEAL_BRIGHT, 0.55));
-          lg.addColorStop(1, rgba(TEAL, 0.40));
-          ctx.fillStyle = lg; ctx.fill();
-          // bright foam rim on the leading edge of the lip
-          ctx.beginPath();
-          ctx.moveTo(cx, peakY + ky * WH);
-          ctx.bezierCurveTo(LX(0.16), LY(-0.16), LX(0.42), LY(0.02), LX(0.34), LY(0.44));
-          ctx.strokeStyle = rgba(FOAM, (0.6 + curl * 0.3) * (1 - kollapse * 0.5));
-          ctx.lineWidth = 2 + curl * 2; ctx.stroke();
-          // foam cascading off the tip as it topples forward
-          var tipX = LX(0.34), tipY = LY(0.44);
-          if (particles.length < MAXP && Math.random() < 0.4 + kollapse * 0.4) {
-            particles.push({ x: tipX + (Math.random() - 0.5) * 22, y: tipY,
-              vx: dir * (0.8 + Math.random() * 2.2),
-              vy: -(0.2 + Math.random() * 0.8) + kollapse * (0.6 + Math.random() * 0.9),
-              life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.7 + Math.random() * 2.0, grav: 0.16 });
+          ctx.moveTo(Xf(B[3][0]), Yf(B[3][1]));
+          ctx.bezierCurveTo(Xf(B[4][0]), Yf(B[4][1]), Xf(B[5][0]), Yf(B[5][1]), Xf(B[6][0]), Yf(B[6][1]));
+          ctx.strokeStyle = rgba(FOAM, (0.28 + curl * 0.38) * (1 - kollapse * 0.5));
+          ctx.lineWidth = 1.4 + curl * 2.2; ctx.stroke();
+          // foam spray shedding off the crest as it breaks and topples forward
+          var tipX = Xf(B[3][0]), tipY = Yf(B[3][1]);
+          if (particles.length < MAXP && Math.random() < 0.35 + kollapse * 0.4) {
+            particles.push({ x: tipX + dir * curl * 30 + (Math.random() - 0.5) * 24, y: tipY,
+              vx: dir * (0.6 + Math.random() * 1.8),
+              vy: -(0.3 + Math.random() * 1.0) + kollapse * (0.5 + Math.random() * 0.9),
+              life: 1, decay: 0.012 + Math.random() * 0.01, r: 0.7 + Math.random() * 1.8, grav: 0.16 });
           }
         }
       }
