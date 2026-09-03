@@ -1,0 +1,10 @@
+# Static site — no build step. Serve the repo root as-is.
+[build]
+  publish = "."
+  command = ""
+
+# Long-cache the wave video (it never changes); CSS/JS are versioned via ?v=
+[[headers]]
+  for = "/waves.mp4"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
